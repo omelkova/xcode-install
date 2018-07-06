@@ -209,11 +209,9 @@ module XcodeInstall
       all_xcodes.sort_by(&:version)
     end
 
-    def install_xip(xip_path, xcode_path, prompt)
+    def install_xip(xip_path, xcode_path, xcode_orig_path, xcode_beta_path, prompt)
       archive_util = '/System/Library/CoreServices/Applications/Archive Utility.app/Contents/MacOS/Archive Utility'
       `'#{archive_util}' #{xip_path}`
-      xcode_orig_path = xip_path.dirname + 'Xcode.app'
-      xcode_beta_path = xip_path.dirname + 'Xcode-beta.app'
       if Pathname.new(xcode_orig_path).exist?
         `sudo -p "#{prompt}" mv "#{xcode_orig_path}" "#{xcode_path}"`
       elsif Pathname.new(xcode_beta_path).exist?
@@ -234,13 +232,19 @@ please open a new GH issue.
       xcode_path = "/Applications/Xcode#{suffix}.app"
 
       if dmg_path.extname == '.xip'
-        install_xip(dmg_path, xcode_path, prompt)
+        xcode_orig_path = dmg_path.dirname + 'Xcode.app'
+        xcode_beta_path = dmg_path.dirname + 'Xcode-beta.app'
+        install_xip(dmg_path, xcode_path, xcode_orig_path, xcode_beta_path, prompt)
         return
       else
         mount_dir = mount(dmg_path)
         mount_dir_xip = Dir.glob(File.join(mount_dir, '*.xip')).first
         if !mount_dir_xip.nil?
-          install_xip(mount_dir_xip, xcode_path, prompt)
+          xip_path = Pathname.new(mount_dir_xip)
+          xcode_orig_path = Pathname.new("#{ENV['HOME']}/Downloads") + 'Xcode.app'
+          xcode_beta_path = Pathname.new("#{ENV['HOME']}/Downloads") + 'Xcode-beta.app'
+          install_xip(xip_path, xcode_path, xcode_orig_path, xcode_beta_path, prompt)
+          `umount "/Volumes/XcodeXIP"`
           return
         else
           source = Dir.glob(File.join(mount_dir, 'Xcode*.app')).first
