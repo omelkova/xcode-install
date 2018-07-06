@@ -209,41 +209,51 @@ module XcodeInstall
       all_xcodes.sort_by(&:version)
     end
 
-    def install_dmg(dmg_path, suffix = '', switch = true, clean = true)
+    def install_xip(xip_path, xcode_path, prompt)
       archive_util = '/System/Library/CoreServices/Applications/Archive Utility.app/Contents/MacOS/Archive Utility'
+      `'#{archive_util}' #{xip_path}`
+      xcode_orig_path = xip_path.dirname + 'Xcode.app'
+      xcode_beta_path = xip_path.dirname + 'Xcode-beta.app'
+      if Pathname.new(xcode_orig_path).exist?
+        `sudo -p "#{prompt}" mv "#{xcode_orig_path}" "#{xcode_path}"`
+      elsif Pathname.new(xcode_beta_path).exist?
+        `sudo -p "#{prompt}" mv "#{xcode_beta_path}" "#{xcode_path}"`
+      else
+        out = <<-HELP
+No `Xcode.app(or Xcode-beta.app)` found in XIP. Please remove #{xip_path} if you
+suspect a corrupted download or run `xcversion update` to see if the version
+you tried to install has been pulled by Apple. If none of this is true,
+please open a new GH issue.
+        HELP
+        $stderr.puts out.tr("\n", ' ')
+      end
+    end
+
+    def install_dmg(dmg_path, suffix = '', switch = true, clean = true)
       prompt = "Please authenticate for Xcode installation.\nPassword: "
       xcode_path = "/Applications/Xcode#{suffix}.app"
 
       if dmg_path.extname == '.xip'
-        `'#{archive_util}' #{dmg_path}`
-        xcode_orig_path = dmg_path.dirname + 'Xcode.app'
-        xcode_beta_path = dmg_path.dirname + 'Xcode-beta.app'
-        if Pathname.new(xcode_orig_path).exist?
-          `sudo -p "#{prompt}" mv "#{xcode_orig_path}" "#{xcode_path}"`
-        elsif Pathname.new(xcode_beta_path).exist?
-          `sudo -p "#{prompt}" mv "#{xcode_beta_path}" "#{xcode_path}"`
-        else
-          out = <<-HELP
-No `Xcode.app(or Xcode-beta.app)` found in XIP. Please remove #{dmg_path} if you
-suspect a corrupted download or run `xcversion update` to see if the version
-you tried to install has been pulled by Apple. If none of this is true,
-please open a new GH issue.
-HELP
-          $stderr.puts out.tr("\n", ' ')
-          return
-        end
+        install_xip(dmg_path, xcode_path, prompt)
+        return
       else
         mount_dir = mount(dmg_path)
-        source = Dir.glob(File.join(mount_dir, 'Xcode*.app')).first
-
-        if source.nil?
-          out = <<-HELP
-No `Xcode.app` found in DMG. Please remove #{dmg_path} if you suspect a corrupted
-download or run `xcversion update` to see if the version you tried to install
-has been pulled by Apple. If none of this is true, please open a new GH issue.
-HELP
-          $stderr.puts out.tr("\n", ' ')
+        mount_dir_xip = Dir.glob(File.join(mount_dir, '*.xip')).first
+        if !mount_dir_xip.nil?
+          install_xip(mount_dir_xip, xcode_path, prompt)
           return
+        else
+          source = Dir.glob(File.join(mount_dir, 'Xcode*.app')).first
+
+          if source.nil?
+            out = <<-HELP
+    No `Xcode.app` found in DMG. Please remove #{dmg_path} if you suspect a corrupted
+    download or run `xcversion update` to see if the version you tried to install
+    has been pulled by Apple. If none of this is true, please open a new GH issue.
+    HELP
+            $stderr.puts out.tr("\n", ' ')
+            return
+          end
         end
 
         `sudo -p "#{prompt}" ditto "#{source}" "#{xcode_path}"`
