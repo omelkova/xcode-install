@@ -245,7 +245,6 @@ please open a new GH issue.
           xcode_beta_path = Pathname.new("#{ENV['HOME']}/Downloads") + 'Xcode-beta.app'
           install_xip(xip_path, xcode_path, xcode_orig_path, xcode_beta_path, prompt)
           `umount "/Volumes/XcodeXIP"`
-          return
         else
           source = Dir.glob(File.join(mount_dir, 'Xcode*.app')).first
 
@@ -258,10 +257,9 @@ please open a new GH issue.
             $stderr.puts out.tr("\n", ' ')
             return
           end
+          `sudo -p "#{prompt}" ditto "#{source}" "#{xcode_path}"`
+          `umount "/Volumes/Xcode"`
         end
-
-        `sudo -p "#{prompt}" ditto "#{source}" "#{xcode_path}"`
-        `umount "/Volumes/Xcode"`
       end
 
       unless verify_integrity(xcode_path)
